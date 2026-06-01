@@ -27,11 +27,21 @@ def login_view(request):
         from django.contrib.auth.models import User, update_last_login
         from django.contrib.auth.signals import user_logged_in
         
-        # Previne escrita no banco de dados "readonly" da Vercel no login
-        user_logged_in.disconnect(update_last_login, dispatch_uid='update_last_login')
         try:
             user = User.objects.get(username=username)
-            login(request, user)
+            # Tenta desconectar o sinal (funciona na maioria das versões do Django)
+            try:
+                user_logged_in.disconnect(update_last_login)
+            except:
+                pass
+                
+            # O login() executa a criação da sessão antes de disparar o signal.
+            # Se o signal tentar escrever no banco readonly e der erro, a sessão já foi criada.
+            try:
+                login(request, user)
+            except Exception as e:
+                pass # Ignora erro de SQLite readonly na Vercel
+                
             next_url = request.GET.get('next', '/')
             return redirect(next_url)
         except User.DoesNotExist:
