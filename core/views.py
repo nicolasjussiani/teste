@@ -26,28 +26,20 @@ def login_view(request):
     if request.method == 'POST':
         username = request.POST.get('username', '').strip()
         
-        # DEMONSTRAÇÃO: Login sem validar senha
-        from django.contrib.auth.models import User, update_last_login
-        from django.contrib.auth.signals import user_logged_in
-        
-        try:
-            user = User.objects.get(username=username)
-            # Bypassa a função login() completamente para evitar QUALQUER escrita no banco
-            request.session['_auth_user_id'] = str(user.pk)
-            request.session['_auth_user_backend'] = 'django.contrib.auth.backends.ModelBackend'
-            request.session['_auth_user_hash'] = user.get_session_auth_hash()
-            
-            next_url = request.GET.get('next', '/')
-            return redirect(next_url)
-        except User.DoesNotExist:
-            messages.error(request, 'Usuário não encontrado no sistema. Para demonstração, use um usuário existente.')
+        # MODO DEMONSTRAÇÃO ESTATÉLICO (Stateless Demo)
+        # Bypassa COMPLETAMENTE qualquer sistema de banco de dados ou sessão interna.
+        next_url = request.GET.get('next', '/')
+        response = redirect(next_url)
+        response.set_cookie('demo_logged_in', 'true', max_age=86400) # Expira em 1 dia
+        return response
 
     return render(request, 'login.html')
 
 
 def logout_view(request):
-    logout(request)
-    return redirect('login')
+    response = redirect('login')
+    response.delete_cookie('demo_logged_in')
+    return response
 
 
 @login_required
