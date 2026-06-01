@@ -90,3 +90,7 @@ LOGOUT_REDIRECT_URL = '/login/'
 AUTH_USER_MODEL = 'auth.User'
 
 SESSION_ENGINE = 'django.contrib.sessions.backends.signed_cookies'
+
+# Configurações de Proxy e CSRF para Vercel
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+CSRF_TRUSTED_ORIGINS = ['https://*.vercel.app']
