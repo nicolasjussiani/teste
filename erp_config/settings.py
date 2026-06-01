@@ -88,3 +88,5 @@ LOGIN_REDIRECT_URL = '/'
 LOGOUT_REDIRECT_URL = '/login/'
 
 AUTH_USER_MODEL = 'auth.User'
+
+SESSION_ENGINE = 'django.contrib.sessions.backends.signed_cookies'

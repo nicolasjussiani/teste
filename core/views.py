@@ -24,7 +24,11 @@ def login_view(request):
         username = request.POST.get('username', '').strip()
         
         # DEMONSTRAÇÃO: Login sem validar senha
-        from django.contrib.auth.models import User
+        from django.contrib.auth.models import User, update_last_login
+        from django.contrib.auth.signals import user_logged_in
+        
+        # Previne escrita no banco de dados "readonly" da Vercel no login
+        user_logged_in.disconnect(update_last_login, dispatch_uid='update_last_login')
         try:
             user = User.objects.get(username=username)
             login(request, user)
