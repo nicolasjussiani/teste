@@ -29,19 +29,11 @@ def login_view(request):
         
         try:
             user = User.objects.get(username=username)
-            # Tenta desconectar o sinal (funciona na maioria das versões do Django)
-            try:
-                user_logged_in.disconnect(update_last_login)
-            except:
-                pass
-                
-            # O login() executa a criação da sessão antes de disparar o signal.
-            # Se o signal tentar escrever no banco readonly e der erro, a sessão já foi criada.
-            try:
-                login(request, user)
-            except Exception as e:
-                pass # Ignora erro de SQLite readonly na Vercel
-                
+            # Bypassa a função login() completamente para evitar QUALQUER escrita no banco
+            request.session['_auth_user_id'] = str(user.pk)
+            request.session['_auth_user_backend'] = 'django.contrib.auth.backends.ModelBackend'
+            request.session['_auth_user_hash'] = user.get_session_auth_hash()
+            
             next_url = request.GET.get('next', '/')
             return redirect(next_url)
         except User.DoesNotExist:
