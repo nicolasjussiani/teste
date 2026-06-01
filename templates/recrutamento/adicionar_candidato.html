@@ -1,0 +1,39 @@
+{% extends 'base.html' %}
+{% block title %}Adicionar Candidato — ERP Ecopremium{% endblock %}
+{% block nav_recrutamento %}active{% endblock %}
+{% block topbar_title %}Adicionar Candidato{% endblock %}
+{% block content %}
+<a href="{% url 'detalhe_vaga' vaga.pk %}" style="color:var(--text-muted);font-size:0.82rem;text-decoration:none;display:block;margin-bottom:16px;">← Voltar à Vaga</a>
+<div class="card" style="max-width:600px;">
+  <div class="card-title mb-4">👤 Novo Candidato — {{ vaga.nome_vaga }}</div>
+  <form method="post">
+    {% csrf_token %}
+    <div class="form-group">
+      <label class="form-label">Nome Completo <span class="required">*</span></label>
+      <input type="text" name="nome" class="form-control" placeholder="Nome completo do candidato" required>
+    </div>
+    <div class="form-grid">
+      <div class="form-group">
+        <label class="form-label">E-mail <span class="required">*</span></label>
+        <input type="email" name="email" class="form-control" placeholder="email@exemplo.com" required>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Telefone <span class="required">*</span></label>
+        <input type="text" name="telefone" class="form-control" placeholder="(00) 00000-0000" required>
+      </div>
+      <div class="form-group">
+        <label class="form-label">CPF</label>
+        <input type="text" name="cpf" class="form-control" placeholder="000.000.000-00">
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Observações do Currículo</label>
+      <textarea name="curriculum_obs" class="form-control" rows="3" placeholder="Pontos relevantes do currículo..."></textarea>
+    </div>
+    <div class="flex justify-between mt-4">
+      <a href="{% url 'detalhe_vaga' vaga.pk %}" class="btn btn-outline">← Cancelar</a>
+      <button type="submit" class="btn btn-mod1">+ Adicionar Candidato</button>
+    </div>
+  </form>
+</div>
+{% endblock %}
