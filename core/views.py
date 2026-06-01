@@ -22,14 +22,16 @@ def login_view(request):
 
     if request.method == 'POST':
         username = request.POST.get('username', '').strip()
-        password = request.POST.get('password', '').strip()
-        user = authenticate(request, username=username, password=password)
-        if user is not None:
+        
+        # DEMONSTRAÇÃO: Login sem validar senha
+        from django.contrib.auth.models import User
+        try:
+            user = User.objects.get(username=username)
             login(request, user)
             next_url = request.GET.get('next', '/')
             return redirect(next_url)
-        else:
-            messages.error(request, 'Usuário ou senha incorretos. Verifique suas credenciais.')
+        except User.DoesNotExist:
+            messages.error(request, 'Usuário não encontrado no sistema. Para demonstração, use um usuário existente.')
 
     return render(request, 'login.html')
 
