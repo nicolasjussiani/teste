@@ -8,8 +8,8 @@ class StatelessDemoMiddleware(MiddlewareMixin):
     Assim não precisamos gravar NADA no banco de dados (nem sessão, nem last_login).
     """
     def process_request(self, request):
-        if request.COOKIES.get('demo_logged_in') == 'true':
-            # Pega o primeiro usuário para demonstração (geralmente admin)
-            user = User.objects.first()
-            if user:
-                request.user = user
+        # MODO DEMONSTRAÇÃO ABSOLUTA: Todo visitante é administrador automaticamente.
+        # Nenhuma tela de login é necessária.
+        user = User.objects.first()
+        if user:
+            request.user = user
