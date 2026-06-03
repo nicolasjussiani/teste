@@ -1,4 +1,5 @@
 """ERP Ecopremium — Views do Core (Login, Dashboard, Notificações)"""
+import os
 from django.shortcuts import render, redirect
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
@@ -18,86 +19,121 @@ from financeiro.models import DocumentoFinanceiro, LancamentoERP
 
 from django.views.decorators.csrf import csrf_exempt
 
+_MODO_DEMO = not bool(os.environ.get('DATABASE_URL'))
+
 @csrf_exempt
 def login_view(request):
+    # ── Modo Demo (sem Supabase configurado) ──────────────────────────────────
+    # Não toca no banco de dados. Qualquer acesso é permitido.
+    if _MODO_DEMO:
+        if request.method == 'POST':
+            next_url = request.GET.get('next', '/')
+            response = redirect(next_url)
+            response.set_cookie('demo_logged_in', 'true', max_age=86400)
+            return response
+        # Se já tem cookie, vai direto pro dashboard
+        if request.COOKIES.get('demo_logged_in'):
+            return redirect('dashboard')
+        return render(request, 'login.html', {'modo_demo': True})
+
+    # ── Modo Real (Supabase configurado) ─────────────────────────────────────
     if request.user.is_authenticated:
         return redirect('dashboard')
 
     if request.method == 'POST':
         username = request.POST.get('username', '').strip()
-        
-        # MODO DEMONSTRAÇÃO ESTATÉLICO (Stateless Demo)
-        # Bypassa COMPLETAMENTE qualquer sistema de banco de dados ou sessão interna.
-        next_url = request.GET.get('next', '/')
-        response = redirect(next_url)
-        response.set_cookie('demo_logged_in', 'true', max_age=86400) # Expira em 1 dia
-        return response
+        password = request.POST.get('password', '').strip()
+        user = authenticate(request, username=username, password=password)
+        if user is not None:
+            login(request, user)
+            next_url = request.GET.get('next', '/')
+            return redirect(next_url)
+        else:
+            messages.error(request, 'Usuário ou senha incorretos.')
 
-    return render(request, 'login.html')
+    return render(request, 'login.html', {'modo_demo': False})
 
 
 def logout_view(request):
-    response = redirect('login')
-    response.delete_cookie('demo_logged_in')
-    return response
+    if _MODO_DEMO:
+        response = redirect('login')
+        response.delete_cookie('demo_logged_in')
+        return response
+    # Modo real
+    logout(request)
+    return redirect('login')
+
 
 
 @login_required
 def dashboard(request):
-    # KPIs agregados
-    try:
-        perfil = request.user.perfil
-    except PerfilUsuario.DoesNotExist:
-        perfil = None
-
     hoje = timezone.now().date()
 
-    # Módulo 1 - Recrutamento
-    vagas_abertas = Vaga.objects.exclude(status__in=['preenchida', 'cancelada']).count()
-    vagas_em_selecao = Vaga.objects.filter(status='em_selecao').count()
-    candidatos_pendentes = Candidato.objects.exclude(etapa_atual__in=['aprovado', 'reprovado', 'desistente']).count()
+    # Perfil do usuário (pode não existir em modo demo)
+    perfil = None
+    try:
+        perfil = request.user.perfil
+    except Exception:
+        pass
 
-    # Módulo 2 - Admissional
-    admissoes_em_andamento = Admissao.objects.exclude(status__in=['concluido']).count()
-    colaboradores_ativos = Colaborador.objects.filter(status='ativo').count()
+    # Todos os KPIs são protegidos — se o banco não estiver disponível,
+    # retorna zeros e listas vazias (modo demo sem Supabase)
+    try:
+        from django.db.models import F as Fcompras
 
-    # Módulo 3 - Administrativo
-    demandas_abertas = DemandaAdministrativa.objects.exclude(status__in=['arquivada']).count()
-    demandas_urgentes = DemandaAdministrativa.objects.filter(
-        prioridade='urgente').exclude(status='arquivada').count()
+        # Módulo 1 - Recrutamento
+        vagas_abertas       = Vaga.objects.exclude(status__in=['preenchida', 'cancelada']).count()
+        vagas_em_selecao    = Vaga.objects.filter(status='em_selecao').count()
+        candidatos_pendentes= Candidato.objects.exclude(etapa_atual__in=['aprovado', 'reprovado', 'desistente']).count()
 
-    # Módulo 4 - SESMET
-    epis_vencidos = RegistroEPI.objects.filter(
-        data_validade__lt=hoje, status='ativo').count()
-    epis_vencendo_7d = RegistroEPI.objects.filter(
-        data_validade__gte=hoje,
-        data_validade__lte=hoje + timezone.timedelta(days=7),
-        status='ativo').count()
+        # Módulo 2 - Admissional
+        admissoes_em_andamento = Admissao.objects.exclude(status__in=['concluido']).count()
+        colaboradores_ativos   = Colaborador.objects.filter(status='ativo').count()
 
-    # Módulo 5 - Compras
-    from django.db.models import F as Fcompras
-    solicitacoes_pendentes = SolicitacaoMaterial.objects.filter(
-        status__in=['pendente', 'em_analise']).count()
-    materiais_criticos = Material.objects.filter(
-        quantidade_estoque__lte=Fcompras('estoque_minimo')).count()
+        # Módulo 3 - Administrativo
+        demandas_abertas  = DemandaAdministrativa.objects.exclude(status__in=['arquivada']).count()
+        demandas_urgentes = DemandaAdministrativa.objects.filter(
+            prioridade='urgente').exclude(status='arquivada').count()
 
+        # Módulo 4 - SESMET
+        epis_vencidos    = RegistroEPI.objects.filter(data_validade__lt=hoje, status='ativo').count()
+        epis_vencendo_7d = RegistroEPI.objects.filter(
+            data_validade__gte=hoje,
+            data_validade__lte=hoje + timezone.timedelta(days=7),
+            status='ativo').count()
 
-    # Módulo 6 - Financeiro
-    docs_em_auditoria = DocumentoFinanceiro.objects.filter(
-        status__in=['recebido', 'em_auditoria']).count()
-    lancamentos_pendentes = LancamentoERP.objects.filter(
-        status__in=['rascunho', 'em_validacao']).count()
+        # Módulo 5 - Compras
+        solicitacoes_pendentes = SolicitacaoMaterial.objects.filter(
+            status__in=['pendente', 'em_analise']).count()
+        materiais_criticos = Material.objects.filter(
+            quantidade_estoque__lte=Fcompras('estoque_minimo')).count()
 
-    # Notificações não lidas
-    notificacoes_nao_lidas = Notificacao.objects.filter(
-        destinatario=request.user, lida=False).count()
-    ultimas_notificacoes = Notificacao.objects.filter(
-        destinatario=request.user).order_by('-criado_em')[:5]
+        # Módulo 6 - Financeiro
+        docs_em_auditoria    = DocumentoFinanceiro.objects.filter(
+            status__in=['recebido', 'em_auditoria']).count()
+        lancamentos_pendentes = LancamentoERP.objects.filter(
+            status__in=['rascunho', 'em_validacao']).count()
 
-    # Atividade recente global
-    vagas_recentes = Vaga.objects.order_by('-criado_em')[:3]
-    admissoes_recentes = Admissao.objects.order_by('-criado_em')[:3]
-    demandas_recentes = DemandaAdministrativa.objects.order_by('-criado_em')[:3]
+        # Notificações
+        notificacoes_nao_lidas  = Notificacao.objects.filter(destinatario=request.user, lida=False).count()
+        ultimas_notificacoes    = Notificacao.objects.filter(destinatario=request.user).order_by('-criado_em')[:5]
+
+        # Atividade recente
+        vagas_recentes    = Vaga.objects.order_by('-criado_em')[:3]
+        admissoes_recentes= Admissao.objects.order_by('-criado_em')[:3]
+        demandas_recentes = DemandaAdministrativa.objects.order_by('-criado_em')[:3]
+
+    except Exception:
+        # Banco indisponível (modo demo sem Supabase) — retorna zeros
+        vagas_abertas = vagas_em_selecao = candidatos_pendentes = 0
+        admissoes_em_andamento = colaboradores_ativos = 0
+        demandas_abertas = demandas_urgentes = 0
+        epis_vencidos = epis_vencendo_7d = 0
+        solicitacoes_pendentes = materiais_criticos = 0
+        docs_em_auditoria = lancamentos_pendentes = 0
+        notificacoes_nao_lidas = 0
+        ultimas_notificacoes = []
+        vagas_recentes = admissoes_recentes = demandas_recentes = []
 
     context = {
         'perfil': perfil,
@@ -119,18 +155,35 @@ def dashboard(request):
         'admissoes_recentes': admissoes_recentes,
         'demandas_recentes': demandas_recentes,
         'hoje': hoje,
+        'modo_demo': _MODO_DEMO,
     }
     return render(request, 'dashboard.html', context)
+
 
 
 
 @login_required
 def notificacoes_json(request):
     """API JSON para notificações (AJAX)"""
-    notifs = Notificacao.objects.filter(
-        destinatario=request.user, lida=False
-    ).values('id', 'tipo', 'modulo', 'titulo', 'mensagem', 'url_acao', 'criado_em')
-    return JsonResponse({'notificacoes': list(notifs), 'total': notifs.count()})
+    try:
+        notifs = Notificacao.objects.filter(
+            destinatario=request.user, lida=False
+        ).values('id', 'tipo', 'modulo', 'titulo', 'mensagem', 'url_acao', 'criado_em')
+        return JsonResponse({'notificacoes': list(notifs), 'total': notifs.count()})
+    except Exception:
+        return JsonResponse({'notificacoes': [], 'total': 0})
+
+
+@login_required
+def marcar_notificacao_lida(request, pk):
+    if request.method == 'POST':
+        try:
+            Notificacao.objects.filter(pk=pk, destinatario=request.user).update(lida=True)
+        except Exception:
+            pass
+        return JsonResponse({'status': 'ok'})
+    return JsonResponse({'status': 'error'}, status=400)
+
 
 
 @login_required
