@@ -83,6 +83,13 @@
         {% if nav_financeiro_count %}<span class="nav-badge">{{ nav_financeiro_count }}</span>{% endif %}
       </a>
 
+      <div class="nav-section-label">Processos</div>
+      <a href="{% url 'aprovacoes_pendentes' %}" class="nav-item {% block nav_aprovacoes %}{% endblock %}" id="navAprovacoes">
+        <span class="nav-icon">✅</span>
+        Aprovações
+        <span class="nav-badge" id="badgeAprovacoes" style="display:none;"></span>
+      </a>
+
       <div class="nav-section-label">Colaboradores</div>
       <a href="{% url 'lista_colaboradores' %}" class="nav-item {% block nav_colaboradores %}{% endblock %}">
         <span class="nav-icon">🏢</span>
@@ -143,6 +150,26 @@ setTimeout(() => {
     setTimeout(() => el.remove(), 400);
   });
 }, 5000);
+
+// Badge de aprovações pendentes (polling a cada 60s)
+function atualizarBadgeAprovacoes() {
+  fetch('{% url "aprovacoes_count_api" %}')
+    .then(r => r.json())
+    .then(data => {
+      const badge = document.getElementById('badgeAprovacoes');
+      if (badge) {
+        if (data.total > 0) {
+          badge.textContent = data.total;
+          badge.style.display = 'inline-flex';
+        } else {
+          badge.style.display = 'none';
+        }
+      }
+    })
+    .catch(() => {});
+}
+atualizarBadgeAprovacoes();
+setInterval(atualizarBadgeAprovacoes, 60000);
 </script>
 
 {% block extra_js %}{% endblock %}

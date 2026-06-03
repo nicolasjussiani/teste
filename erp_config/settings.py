@@ -3,12 +3,19 @@ ERP Ecopremium - Settings
 """
 from pathlib import Path
 import os
+import dj_database_url
+from dotenv import load_dotenv
+
+load_dotenv()
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-SECRET_KEY = 'django-insecure-erp-ecopremium-2025-trip-eco-log-premium-key'
-
-DEBUG = True
+# ── Segurança ─────────────────────────────────────────────────────────────────
+SECRET_KEY = os.environ.get(
+    'SECRET_KEY',
+    'django-insecure-erp-ecopremium-2025-trip-eco-log-premium-key'
+)
+DEBUG = os.environ.get('DEBUG', 'True') == 'True'
 
 ALLOWED_HOSTS = ['*']
 
@@ -61,12 +68,31 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'erp_config.wsgi.application'
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+# ── Banco de Dados ────────────────────────────────────────────────────────────
+# Em produção (Vercel), usa DATABASE_URL → Supabase PostgreSQL
+# Em desenvolvimento local, usa SQLite como fallback
+if os.environ.get('DATABASE_URL'):
+    DATABASES = {
+        'default': dj_database_url.config(
+            default=os.environ.get('DATABASE_URL'),
+            conn_max_age=600,
+            conn_health_checks=True,
+            ssl_require=True,
+        )
     }
-}
+else:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
+        }
+    }
+
+# ── Supabase ──────────────────────────────────────────────────────────────────
+SUPABASE_URL = os.environ.get('SUPABASE_URL', '')
+SUPABASE_ANON_KEY = os.environ.get('SUPABASE_ANON_KEY', '')
+SUPABASE_SERVICE_ROLE_KEY = os.environ.get('SUPABASE_SERVICE_ROLE_KEY', '')
+SUPABASE_PUBLISHABLE_KEY = os.environ.get('SUPABASE_PUBLISHABLE_KEY', '')
 
 AUTH_PASSWORD_VALIDATORS = []
 
@@ -78,6 +104,7 @@ USE_TZ = True
 STATIC_URL = '/static/'
 STATICFILES_DIRS = [BASE_DIR / 'static']
 STATIC_ROOT = BASE_DIR / 'staticfiles'
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
@@ -92,6 +119,12 @@ AUTH_USER_MODEL = 'auth.User'
 
 SESSION_ENGINE = 'django.contrib.sessions.backends.signed_cookies'
 
-# Configurações de Proxy e CSRF para Vercel
+# ── Configurações de Proxy e CSRF para Vercel ─────────────────────────────────
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
-CSRF_TRUSTED_ORIGINS = ['https://*.vercel.app']
+CSRF_TRUSTED_ORIGINS = [
+    'https://*.vercel.app',
+    'https://*.ecopremium.com.br',
+    'http://localhost:8000',
+    'http://127.0.0.1:8000',
+]
+
