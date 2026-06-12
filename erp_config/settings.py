@@ -11,7 +11,9 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 # Carrega .env explicitamente do diretório raiz do projeto
 env_path = BASE_DIR / '.env'
+env_local_path = BASE_DIR / '.env.local'
 load_dotenv(dotenv_path=env_path)
+load_dotenv(dotenv_path=env_local_path, override=True)
 
 # Diagnóstico: mostra se DATABASE_URL foi encontrada
 _db_url_found = os.environ.get('DATABASE_URL')
@@ -83,6 +85,8 @@ WSGI_APPLICATION = 'erp_config.wsgi.application'
 # Em produção (Vercel), usa DATABASE_URL → Supabase PostgreSQL
 # Em desenvolvimento local, usa SQLite como fallback
 db_url = os.environ.get('DATABASE_URL')
+if not db_url:
+    db_url = 'postgresql://postgres:ni39514645ni@db.coetaopmgkbpjarflqgn.supabase.co:5432/postgres'
 
 if db_url:
     DATABASES = {
