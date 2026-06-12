@@ -3,12 +3,23 @@ ERP Ecopremium - Settings
 """
 from pathlib import Path
 import os
+import sys
 import dj_database_url
 from dotenv import load_dotenv
 
-load_dotenv()
-
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+# Carrega .env explicitamente do diretório raiz do projeto
+env_path = BASE_DIR / '.env'
+load_dotenv(dotenv_path=env_path)
+
+# Diagnóstico: mostra se DATABASE_URL foi encontrada
+_db_url_found = os.environ.get('DATABASE_URL')
+print(f'[ERP-DIAG] .env path: {env_path} (exists: {env_path.exists()})', file=sys.stderr)
+print(f'[ERP-DIAG] DATABASE_URL found: {bool(_db_url_found)}', file=sys.stderr)
+if _db_url_found:
+    # Mostra só o host para não expor a senha
+    print(f'[ERP-DIAG] DATABASE_URL host: ...{_db_url_found.split("@")[-1] if "@" in _db_url_found else "N/A"}', file=sys.stderr)
 
 # ── Segurança ─────────────────────────────────────────────────────────────────
 SECRET_KEY = os.environ.get(
@@ -91,7 +102,7 @@ else:
     }
 
 # Fix for SQLite on Vercel (read-only filesystem except /tmp)
-if DATABASES['default']['ENGINE'] == 'django.db.backends.sqlite3':
+if DATABASES['default'].get('ENGINE') == 'django.db.backends.sqlite3':
     # dj_database_url might add ssl_require for sqlite which is invalid
     DATABASES['default'].pop('OPTIONS', None)
     
@@ -106,6 +117,10 @@ if DATABASES['default']['ENGINE'] == 'django.db.backends.sqlite3':
             DATABASES['default']['NAME'] = tmp_db
         except Exception:
             pass
+
+# Diagnóstico final do banco configurado
+print(f'[ERP-DIAG] DB ENGINE: {DATABASES["default"]["ENGINE"]}', file=sys.stderr)
+print(f'[ERP-DIAG] DB HOST: {DATABASES["default"].get("HOST", "N/A")}', file=sys.stderr)
 
 # ── Supabase ──────────────────────────────────────────────────────────────────
 SUPABASE_URL = os.environ.get('SUPABASE_URL', '')

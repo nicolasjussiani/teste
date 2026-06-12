@@ -192,3 +192,32 @@ def marcar_notificacao_lida(request, pk):
         Notificacao.objects.filter(pk=pk, destinatario=request.user).update(lida=True)
         return JsonResponse({'status': 'ok'})
     return JsonResponse({'status': 'error'}, status=400)
+
+
+# ── TEMPORÁRIO: View de diagnóstico para debug da Vercel ──────────────────────
+from django.views.decorators.csrf import csrf_exempt
+from django.conf import settings as django_settings
+
+@csrf_exempt
+def debug_env(request):
+    """View temporária para diagnosticar variáveis de ambiente na Vercel.
+    REMOVER DEPOIS DE RESOLVER O PROBLEMA!"""
+    import sys
+    info = {
+        'DATABASE_URL_exists': bool(os.environ.get('DATABASE_URL')),
+        'DATABASE_URL_starts_with': (os.environ.get('DATABASE_URL', '')[:30] + '...') if os.environ.get('DATABASE_URL') else 'NOT SET',
+        'DB_ENGINE': django_settings.DATABASES['default']['ENGINE'],
+        'DB_HOST': django_settings.DATABASES['default'].get('HOST', 'N/A'),
+        'DB_NAME': str(django_settings.DATABASES['default'].get('NAME', 'N/A')),
+        'SESSION_ENGINE': django_settings.SESSION_ENGINE,
+        'VERCEL_env': os.environ.get('VERCEL', 'NOT SET'),
+        'env_file_exists': (django_settings.BASE_DIR / '.env').exists(),
+        'MIDDLEWARE_count': len(django_settings.MIDDLEWARE),
+        'MIDDLEWARE': django_settings.MIDDLEWARE,
+        'CSRF_TRUSTED_ORIGINS': django_settings.CSRF_TRUSTED_ORIGINS,
+        'python_path': sys.path[:5],
+        'cwd': os.getcwd(),
+        'BASE_DIR': str(django_settings.BASE_DIR),
+        'all_env_keys_with_DB_or_SUPA': [k for k in os.environ.keys() if 'DB' in k.upper() or 'SUPA' in k.upper() or 'DATABASE' in k.upper()],
+    }
+    return JsonResponse(info, json_dumps_params={'indent': 2})
