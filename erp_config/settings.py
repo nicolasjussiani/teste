@@ -71,10 +71,12 @@ WSGI_APPLICATION = 'erp_config.wsgi.application'
 # ── Banco de Dados ────────────────────────────────────────────────────────────
 # Em produção (Vercel), usa DATABASE_URL → Supabase PostgreSQL
 # Em desenvolvimento local, usa SQLite como fallback
-if os.environ.get('DATABASE_URL'):
+db_url = os.environ.get('DATABASE_URL')
+
+if db_url:
     DATABASES = {
         'default': dj_database_url.config(
-            default=os.environ.get('DATABASE_URL'),
+            default=db_url,
             conn_max_age=600,
             conn_health_checks=True,
             ssl_require=True,
@@ -87,6 +89,23 @@ else:
             'NAME': BASE_DIR / 'db.sqlite3',
         }
     }
+
+# Fix for SQLite on Vercel (read-only filesystem except /tmp)
+if DATABASES['default']['ENGINE'] == 'django.db.backends.sqlite3':
+    # dj_database_url might add ssl_require for sqlite which is invalid
+    DATABASES['default'].pop('OPTIONS', None)
+    
+    is_serverless = os.environ.get('VERCEL') == '1' or os.environ.get('AWS_EXECUTION_ENV') is not None
+    if is_serverless:
+        import shutil
+        source_db = BASE_DIR / 'db.sqlite3'
+        tmp_db = '/tmp/db.sqlite3'
+        try:
+            if not os.path.exists(tmp_db) and os.path.exists(source_db):
+                shutil.copy2(source_db, tmp_db)
+            DATABASES['default']['NAME'] = tmp_db
+        except Exception:
+            pass
 
 # ── Supabase ──────────────────────────────────────────────────────────────────
 SUPABASE_URL = os.environ.get('SUPABASE_URL', '')
