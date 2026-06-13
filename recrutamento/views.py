@@ -10,13 +10,26 @@ from django.contrib.auth.models import User
 from django.http import JsonResponse
 import json
 import re
-import fitz  # PyMuPDF
-import pytesseract
-from PIL import Image
 import io
+import os
 
-# Configurar o caminho do Tesseract (instalado no Windows)
-pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
+# OCR imports — opcionais (não disponíveis na Vercel)
+try:
+    import fitz  # PyMuPDF
+    HAS_FITZ = True
+except ImportError:
+    HAS_FITZ = False
+
+try:
+    import pytesseract
+    from PIL import Image
+    # Configurar o caminho do Tesseract (instalado no Windows)
+    tesseract_path = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
+    if os.path.exists(tesseract_path):
+        pytesseract.pytesseract.tesseract_cmd = tesseract_path
+    HAS_OCR = True
+except ImportError:
+    HAS_OCR = False
 
 
 @login_required
@@ -233,6 +246,10 @@ def banco_talentos(request):
 @login_required
 def parse_curriculo(request):
     """Lê um PDF enviado por AJAX e tenta extrair nome, email e telefone."""
+    if not HAS_FITZ:
+        return JsonResponse({
+            'error': 'Leitura de PDF não disponível neste servidor. Configure localmente para usar esta funcionalidade.'
+        }, status=400)
     if request.method == 'POST' and request.FILES.get('curriculo'):
         arquivo = request.FILES['curriculo']
         texto = ""
@@ -246,9 +263,10 @@ def parse_curriculo(request):
                     texto += page_text + "\n"
                 else:
                     # OCR fallback para páginas escaneadas
-                    pix = page.get_pixmap(dpi=150)
-                    img = Image.open(io.BytesIO(pix.tobytes()))
-                    texto += pytesseract.image_to_string(img, lang='por') + "\n"
+                    if HAS_OCR:
+                        pix = page.get_pixmap(dpi=150)
+                        img = Image.open(io.BytesIO(pix.tobytes()))
+                        texto += pytesseract.image_to_string(img, lang='por') + "\n"
             doc.close()
         except Exception as e:
             return JsonResponse({'error': 'Erro ao ler o PDF: ' + str(e)}, status=400)
