@@ -85,8 +85,8 @@ WSGI_APPLICATION = 'erp_config.wsgi.application'
 # Em produção (Vercel), usa DATABASE_URL → Supabase PostgreSQL
 # Em desenvolvimento local, usa SQLite como fallback
 db_url = os.environ.get('DATABASE_URL')
-# if not db_url:
-#     db_url = 'postgresql://postgres.coetaopmgkbpjarflqgn:ni39514645ni@aws-1-us-west-2.pooler.supabase.com:5432/postgres'
+if not db_url:
+    db_url = 'postgresql://postgres.coetaopmgkbpjarflqgn:ni39514645ni@aws-1-us-west-2.pooler.supabase.com:5432/postgres'
 
 if db_url:
     DATABASES = {
