@@ -8,4 +8,7 @@ urlpatterns = [
     path('<int:pk>/avancar/', views.avancar_admissao, name='avancar_admissao'),
     path('<int:admissao_pk>/documento/<int:doc_pk>/', views.atualizar_documento, name='atualizar_documento'),
     path('colaboradores/', views.lista_colaboradores, name='lista_colaboradores'),
+    path('colaboradores/novo/', views.novo_colaborador, name='novo_colaborador'),
+    path('colaboradores/<int:pk>/editar/', views.editar_colaborador, name='editar_colaborador'),
+    path('colaboradores/<int:pk>/excluir/', views.excluir_colaborador, name='excluir_colaborador'),
 ]

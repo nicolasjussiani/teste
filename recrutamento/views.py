@@ -3,10 +3,20 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.utils import timezone
-from .models import Vaga, Candidato
+from .models import Vaga, Candidato, Talento
 from admissional.models import Admissao, DocumentoAdmissional
 from core.models import Notificacao
 from django.contrib.auth.models import User
+from django.http import JsonResponse
+import json
+import re
+import fitz  # PyMuPDF
+import pytesseract
+from PIL import Image
+import io
+
+# Configurar o caminho do Tesseract (instalado no Windows)
+pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
 
 
 @login_required
@@ -97,16 +107,34 @@ def detalhe_vaga(request, pk):
 def adicionar_candidato(request, vaga_pk):
     vaga = get_object_or_404(Vaga, pk=vaga_pk)
     if request.method == 'POST':
+        cpf = request.POST.get('cpf', '')
+        email = request.POST.get('email', '')
+        telefone = request.POST.get('telefone', '')
+        nome = request.POST.get('nome', '')
+        cidade = request.POST.get('cidade', '')
+
         candidato = Candidato(
             vaga=vaga,
-            nome=request.POST['nome'],
-            email=request.POST['email'],
-            telefone=request.POST['telefone'],
-            cpf=request.POST.get('cpf', ''),
+            nome=nome,
+            email=email,
+            telefone=telefone,
+            cidade=cidade,
+            cpf=cpf,
             curriculum_obs=request.POST.get('curriculum_obs', ''),
             etapa_atual='triagem',
         )
         candidato.save()
+        
+        # Salva no Banco de Talentos se o e-mail não existir
+        if email and not Talento.objects.filter(email=email).exists():
+            Talento.objects.create(
+                nome=nome,
+                email=email,
+                telefone=telefone,
+                cidade=cidade,
+                cpf=cpf,
+            )
+
         messages.success(request, f'✅ Candidato {candidato.nome} adicionado à vaga {vaga.nome_vaga}.')
         return redirect('detalhe_vaga', pk=vaga_pk)
     return render(request, 'recrutamento/adicionar_candidato.html', {'vaga': vaga})
@@ -184,3 +212,80 @@ def _disparar_admissao(candidato, usuario):
                          f'({candidato.vaga.unidade}). Processo admissional criado automaticamente.',
                 url_acao=f'/admissional/{admissao.pk}/',
             )
+
+@login_required
+def banco_talentos(request):
+    talentos = Talento.objects.all()
+    cidade_filter = request.GET.get('cidade', '')
+    nome_filter = request.GET.get('nome', '')
+    
+    if cidade_filter:
+        talentos = talentos.filter(cidade__icontains=cidade_filter)
+    if nome_filter:
+        talentos = talentos.filter(nome__icontains=nome_filter)
+        
+    return render(request, 'recrutamento/banco_talentos.html', {
+        'talentos': talentos,
+        'cidade_filter': cidade_filter,
+        'nome_filter': nome_filter,
+    })
+
+@login_required
+def parse_curriculo(request):
+    """Lê um PDF enviado por AJAX e tenta extrair nome, email e telefone."""
+    if request.method == 'POST' and request.FILES.get('curriculo'):
+        arquivo = request.FILES['curriculo']
+        texto = ""
+        try:
+            # Lê os bytes apenas uma vez
+            file_bytes = arquivo.read()
+            doc = fitz.open(stream=file_bytes, filetype="pdf")
+            for page in doc:
+                page_text = page.get_text()
+                if len(page_text.strip()) > 5:
+                    texto += page_text + "\n"
+                else:
+                    # OCR fallback para páginas escaneadas
+                    pix = page.get_pixmap(dpi=150)
+                    img = Image.open(io.BytesIO(pix.tobytes()))
+                    texto += pytesseract.image_to_string(img, lang='por') + "\n"
+            doc.close()
+        except Exception as e:
+            return JsonResponse({'error': 'Erro ao ler o PDF: ' + str(e)}, status=400)
+            
+        # Extração de Email
+        # Corrige possíveis erros de OCR como "" no lugar do "@"
+        texto_limpo = texto.replace('', '@').replace('©', '@').replace('°', '@')
+        email_match = re.search(r'[\w\.-]+@[\w\.-]+\.\w+', texto_limpo)
+        email = email_match.group(0) if email_match else ''
+        
+        # Extração de Telefone (padrão básico Brasil)
+        # Match para: (11) 99999-9999, 11 99999 9999, 11999999999, etc
+        tel_match = re.search(r'\(?\d{2}\)?\s?(?:9\d{4}|\d{4})[-\s]?\d{4}', texto)
+        telefone = tel_match.group(0) if tel_match else ''
+        
+        # Extração de Nome: pega as primeiras linhas não vazias do currículo
+        linhas = [l.strip() for l in texto_limpo.split('\n') if len(l.strip()) > 2]
+        
+        # Junta as 2 primeiras linhas caso o OCR quebre o nome em múltiplas linhas (ex: "Nico\nlas")
+        nome = ""
+        if len(linhas) > 0:
+            nome = linhas[0]
+            # Se o nome tiver menos de 8 caracteres, provavelmente foi quebrado. Junta com a próxima.
+            if len(nome) < 10 and len(linhas) > 1:
+                nome += " " + linhas[1]
+        
+        # Limpa caracteres bizarros do nome
+        nome = re.sub(r'[^a-zA-ZáéíóúâêôãõçÁÉÍÓÚÂÊÔÃÕÇ \-]', '', nome).strip()
+        
+        if len(nome) > 100:
+            nome = nome[:100]
+            
+        return JsonResponse({
+            'nome': nome,
+            'email': email,
+            'telefone': telefone,
+            'texto_extraido': texto
+        })
+        
+    return JsonResponse({'error': 'Arquivo não enviado.'}, status=400)

@@ -9,6 +9,10 @@
   <div class="mod-desc">{{ total }} colaborador(es) ativo(s) no sistema</div>
 </div>
 
+<div style="margin-bottom: 20px;">
+  <a href="{% url 'novo_colaborador' %}" class="btn btn-mod1">➕ Novo Colaborador</a>
+</div>
+
 {% if colaboradores %}
 <div class="table-wrap">
   <table>
@@ -22,6 +26,7 @@
         <th>Admissão</th>
         <th>Status</th>
         <th>EPIs</th>
+        <th>Ações</th>
       </tr>
     </thead>
     <tbody>
@@ -43,6 +48,10 @@
         </td>
         <td>
           <a href="{% url 'registrar_epi_colaborador' c.pk %}" class="btn btn-sm btn-mod4">🦺 EPI</a>
+        </td>
+        <td>
+          <a href="{% url 'editar_colaborador' c.pk %}" class="btn btn-sm btn-mod1" title="Editar">✏️</a>
+          <a href="{% url 'excluir_colaborador' c.pk %}" class="btn btn-sm btn-danger" title="Excluir">🗑️</a>
         </td>
       </tr>
       {% endfor %}

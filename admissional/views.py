@@ -4,6 +4,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.utils import timezone
 from .models import Admissao, Colaborador, DocumentoAdmissional
+from .forms import ColaboradorForm
 from core.models import Notificacao
 from sesmet.models import IntegracaoSeguranca, RegistroEPI, OrdemServico
 from django.contrib.auth.models import User
@@ -127,3 +128,38 @@ def lista_colaboradores(request):
         'colaboradores': colaboradores,
         'total': colaboradores.count(),
     })
+
+@login_required
+def novo_colaborador(request):
+    if request.method == 'POST':
+        form = ColaboradorForm(request.POST)
+        if form.is_valid():
+            colaborador = form.save()
+            messages.success(request, f'Colaborador {colaborador.nome} cadastrado com sucesso!')
+            return redirect('lista_colaboradores')
+    else:
+        form = ColaboradorForm()
+    return render(request, 'admissional/form_colaborador.html', {'form': form, 'acao': 'Novo'})
+
+@login_required
+def editar_colaborador(request, pk):
+    colaborador = get_object_or_404(Colaborador, pk=pk)
+    if request.method == 'POST':
+        form = ColaboradorForm(request.POST, instance=colaborador)
+        if form.is_valid():
+            form.save()
+            messages.success(request, f'Colaborador {colaborador.nome} atualizado com sucesso!')
+            return redirect('lista_colaboradores')
+    else:
+        form = ColaboradorForm(instance=colaborador)
+    return render(request, 'admissional/form_colaborador.html', {'form': form, 'acao': 'Editar'})
+
+@login_required
+def excluir_colaborador(request, pk):
+    colaborador = get_object_or_404(Colaborador, pk=pk)
+    if request.method == 'POST':
+        nome = colaborador.nome
+        colaborador.delete()
+        messages.success(request, f'Colaborador {nome} excluído com sucesso!')
+        return redirect('lista_colaboradores')
+    return render(request, 'admissional/excluir_colaborador.html', {'colaborador': colaborador})

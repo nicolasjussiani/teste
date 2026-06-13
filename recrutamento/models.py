@@ -75,6 +75,7 @@ class Candidato(models.Model):
     nome = models.CharField(max_length=200, verbose_name='Nome Completo')
     email = models.EmailField(verbose_name='E-mail')
     telefone = models.CharField(max_length=20, verbose_name='Telefone')
+    cidade = models.CharField(max_length=100, blank=True, verbose_name='Cidade')
     cpf = models.CharField(max_length=14, blank=True, verbose_name='CPF')
     etapa_atual = models.CharField(max_length=20, choices=ETAPAS, default='triagem')
     aprovado = models.BooleanField(null=True, blank=True, verbose_name='Aprovado?')
@@ -94,3 +95,23 @@ class Candidato(models.Model):
 
     def __str__(self):
         return f"{self.nome} → {self.vaga.nome_vaga} ({self.get_etapa_atual_display()})"
+
+
+class Talento(models.Model):
+    nome = models.CharField(max_length=200, verbose_name='Nome Completo')
+    email = models.EmailField(verbose_name='E-mail', unique=True)
+    telefone = models.CharField(max_length=20, verbose_name='Telefone')
+    cidade = models.CharField(max_length=100, blank=True, verbose_name='Cidade')
+    cpf = models.CharField(max_length=14, blank=True, verbose_name='CPF')
+    curriculo_texto = models.TextField(blank=True, verbose_name='Texto Extraído do Currículo')
+    criado_em = models.DateTimeField(auto_now_add=True)
+    atualizado_em = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'Talento'
+        verbose_name_plural = 'Banco de Talentos'
+        ordering = ['-criado_em']
+
+    def __str__(self):
+        return f"{self.nome} ({self.cidade})"
+

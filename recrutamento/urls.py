@@ -8,4 +8,6 @@ urlpatterns = [
     path('<int:pk>/', views.detalhe_vaga, name='detalhe_vaga'),
     path('<int:vaga_pk>/candidato/novo/', views.adicionar_candidato, name='adicionar_candidato'),
     path('candidato/<int:candidato_pk>/avancar/', views.avancar_etapa, name='avancar_etapa'),
+    path('banco-talentos/', views.banco_talentos, name='banco_talentos'),
+    path('api/parse-curriculo/', views.parse_curriculo, name='parse_curriculo'),
 ]

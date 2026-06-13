@@ -52,6 +52,11 @@
         Recrutamento e Seleção
         {% if nav_vagas_count %}<span class="nav-badge">{{ nav_vagas_count }}</span>{% endif %}
       </a>
+      
+      <a href="{% url 'banco_talentos' %}" class="nav-item mod1 {% block nav_talentos %}{% endblock %}">
+        <span class="nav-icon">🌟</span>
+        Banco de Talentos
+      </a>
 
       <a href="{% url 'lista_admissoes' %}" class="nav-item mod2 {% block nav_admissional %}{% endblock %}">
         <span class="nav-icon">📋</span>
